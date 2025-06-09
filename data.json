@@ -82,7 +82,8 @@
         "delete"
       ],
       "privacypolicy": [
-        "write"
+        "write",
+        "read"
       ],
       "profilemanagertab": [
         "view",
