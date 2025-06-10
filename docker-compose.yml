@@ -13,6 +13,23 @@ services:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+  postgres_data:
+    image: postgres:alpine
+    environment:
+      - POSTGRES_DB=opal_data
+      - POSTGRES_USER=opal_user
+      - POSTGRES_PASSWORD=opal_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data.json:/docker-entrypoint-initdb.d/data.json
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opal_user -d opal_data"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   opal_server:
     # by default we run opal-server from latest official image
     image: permitio/opal-server:latest
@@ -37,7 +54,9 @@ services:
       # configures from where the opal client should initially fetch data (when it first goes up, after disconnection, etc).
       # the data sources represents from where the opal clients should get a "complete picture" of the data they need.
       # after the initial sources are fetched, the client will subscribe only to update notifications sent by the server.
-      - OPAL_DATA_CONFIG_SOURCES={"config":{"entries":[{"url":"http://opal_server:7002/policy-data","topics":["policy_data"],"dst_path":"/"}]}}
+      #- OPAL_DATA_CONFIG_SOURCES={"config":{"entries":[{"url":"http://opal_server:7002/policy-data","topics":["policy_data"],"dst_path":"/"}]}}
+      - OPAL_DATA_CONFIG_SOURCES={"config":{"entries":[{"url":"postgresql://opal_user:opal_password@postgres_data:5432/opal_data","config":{"fetcher":"PostgresFetchProvider","query":"WITH role_data AS (SELECT role, json_object_agg(resource, scopes ORDER BY resource) as resource_scopes FROM roles GROUP BY role ORDER BY role) SELECT json_build_object('roles', json_object_agg(role, resource_scopes ORDER BY role))::jsonb as data FROM role_data;","connection_params":{"password":"opal_password"},"topics":["policy_data"],"dst_path":"/","fetch_interval":30,"data_type":"json"}}]}}
+      #- OPAL_DATA_CONFIG_SOURCES={"config": {"entries": [{"url": "postgresql://opal_user@postgres_data:5432/postgres","config": {"fetcher": "PostgresFetchProvider","query": "SELECT * from roles;","connection_params": {"password": "opal_password"}},"topics": ["policy_data"],"dst_path": "/"}]}}
       #- OPAL_LOG_FORMAT_INCLUDE_PID=true
       #- OPAL_POLICY_SUBSCRIPTION_DIRS=opa/bundles
     ports:
@@ -45,13 +64,18 @@ services:
       - "7002:7002"
     depends_on:
       - broadcast_channel
+      - postgres_data
   opal_client:
     # by default we run opal-client from latest official image
-    image: permitio/opal-client:latest
+    #image: permitio/opal-client:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       - OPAL_SERVER_URL=http://opal_server:7002
       - OPAL_LOG_FORMAT_INCLUDE_PID=true
       - OPAL_INLINE_OPA_LOG_FORMAT=http
+      - OPAL_FETCH_PROVIDER_MODULES=opal_common.fetcher.providers,opal_fetcher_postgres.provider
       #- OPAL_POLICY_SUBSCRIPTION_DIRS=data
 
       # Uncomment the following lines to enable storing & loading OPA data from a backup file:
@@ -74,3 +98,4 @@ services:
 
 volumes:
   opa_backup:
+  postgres_data:
