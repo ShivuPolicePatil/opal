@@ -3,6 +3,10 @@ import future.keywords.if
 
 default allow := false
 
+# Function to parse JSON string
+parse_json(str) = parsed if {
+    parsed := json.unmarshal(str)
+}
 
 normalize_role(role) = norm if {
   norm := lower(replace(role, " ", "_"))
@@ -15,7 +19,8 @@ allow if {
 	role := input.roles[i]
     role_in_input(role)
     input_role := normalize_role(role)
-	roles := data.items.roles[input_role]
+    roles_data := parse_json(data.items.roles)
+    roles := roles_data[input_role]
 	resource_permissions := roles[input.resource]
 	resource_permissions[_] == input.action
 }
@@ -30,17 +35,18 @@ aggregated_scopes[res] = scopes_set if {
 	role := input.roles[i]
     role_in_input(role)
     input_role := normalize_role(role)
-  perms := data.items.roles[input_role]
-  perms[res] != null
-  scopes_set := {s |
-    some i
-	r := input.roles[i]
-    role_in_input(r)
-    input_role := normalize_role(r)
-    perms_r := data.items.roles[input_role]
-    perms_r[res] != null
-    s := perms_r[res][_]
-  }
+    roles_data := parse_json(data.items.roles)
+    perms := roles_data[input_role]
+    perms[res] != null
+    scopes_set := {s |
+        some i
+        r := input.roles[i]
+        role_in_input(r)
+        input_role := normalize_role(r)
+        perms_r := roles_data[input_role]
+        perms_r[res] != null
+        s := perms_r[res][_]
+    }
 }
 
 
