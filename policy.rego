@@ -19,7 +19,7 @@ allow if {
 	role := input.roles[i]
     role_in_input(role)
     input_role := normalize_role(role)
-    roles_data := parse_json(data.items.roles)
+    roles_data := parse_json(data.items[0].roles)
     roles := roles_data[input_role]
 	resource_permissions := roles[input.resource]
 	resource_permissions[_] == input.action
@@ -35,7 +35,7 @@ aggregated_scopes[res] = scopes_set if {
 	role := input.roles[i]
     role_in_input(role)
     input_role := normalize_role(role)
-    roles_data := parse_json(data.items.roles)
+    roles_data := parse_json(data.items[0].roles)
     perms := roles_data[input_role]
     perms[res] != null
     scopes_set := {s |
