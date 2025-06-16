@@ -13,6 +13,8 @@ services:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5433:5432"
   postgres_data:
     image: postgres:alpine
     environment:
@@ -55,7 +57,7 @@ services:
       # the data sources represents from where the opal clients should get a "complete picture" of the data they need.
       # after the initial sources are fetched, the client will subscribe only to update notifications sent by the server.
       #- OPAL_DATA_CONFIG_SOURCES={"config":{"entries":[{"url":"http://opal_server:7002/policy-data","topics":["policy_data"],"dst_path":"/"}]}}
-      - OPAL_DATA_CONFIG_SOURCES={"config":{"entries":[{"url":"postgresql://opal_user:opal_password@postgres_data:5432/opal_data","config":{"fetcher":"PostgresFetchProvider","query":"WITH role_data AS (SELECT role, json_object_agg(resource, scopes ORDER BY resource) as resource_scopes FROM roles GROUP BY role ORDER BY role) SELECT json_object_agg(role, resource_scopes ORDER BY role)::jsonb as roles FROM role_data;","connection_params":{"password":"opal_password"},"topics":["policy_data"],"dst_path":"/roles","fetch_interval":30,"data_type":"json"}}]}}
+      - OPAL_DATA_CONFIG_SOURCES={"config":{"entries":[{"url":"postgresql://opal_user:opal_password@postgres_data:5432/opal_data","config":{"fetcher":"PostgresFetchProvider","query":"WITH role_data AS (SELECT role, json_object_agg(resource, scopes ORDER BY resource) as resource_scopes FROM roles GROUP BY role ORDER BY role) SELECT json_object_agg(role, resource_scopes ORDER BY role)::jsonb as roles FROM role_data;","connection_params":{"password":"opal_password"}},"topics":["policy_data"], "periodic_update_interval":10}]}}
       #- OPAL_DATA_CONFIG_SOURCES={"config": {"entries": [{"url": "postgresql://opal_user@postgres_data:5432/postgres","config": {"fetcher": "PostgresFetchProvider","query": "SELECT * from roles;","connection_params": {"password": "opal_password"}},"topics": ["policy_data"],"dst_path": "/"}]}}
       #- OPAL_LOG_FORMAT_INCLUDE_PID=true
       #- OPAL_POLICY_SUBSCRIPTION_DIRS=opa/bundles
@@ -76,6 +78,9 @@ services:
       - OPAL_LOG_FORMAT_INCLUDE_PID=true
       - OPAL_INLINE_OPA_LOG_FORMAT=http
       - OPAL_FETCH_PROVIDER_MODULES=opal_common.fetcher.providers,opal_fetcher_postgres.provider
+      #- OPAL_DATA_TOPICS=policy_data
+      #- OPAL_DATA_UPDATER_ENABLED=true
+      #- OPAL_DATA_UPDATER_INTERVAL=30
       #- OPAL_POLICY_SUBSCRIPTION_DIRS=data
 
       # Uncomment the following lines to enable storing & loading OPA data from a backup file:
@@ -92,6 +97,7 @@ services:
       - "8181:8181"
     depends_on:
       - opal_server
+      - postgres_data
     # this command is not necessary when deploying OPAL for real, it is simply a trick for dev environments
     # to make sure that opal-server is already up before starting the client.
     command: sh -c "exec ./wait-for.sh opal_server:7002 --timeout=20 -- ./start.sh"
