@@ -12,6 +12,11 @@ normalize_role(role) = norm if {
   norm := lower(replace(role, " ", "_"))
 }
 
+# Rule to check if the role is in the input
+allowByRole if {
+  input.action == data.items[0].roles[input.role][input.resource][_]
+}
+
 # Rule to check if any role in the input has permission for a given resource and action
 allow if {
 	#some role
